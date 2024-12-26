@@ -8,13 +8,20 @@ import com.itextpdf.layout.Document;
 import com.itextpdf.layout.element.AreaBreak;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.properties.AreaBreakType;
+
+//import com.itextpdf.layout.element.Cell;
+import com.itextpdf.layout.properties.TextAlignment;
 import org.apache.poi.ss.usermodel.Cell;
+
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import com.itextpdf.kernel.font.*;
 import com.itextpdf.kernel.pdf.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.swing.*;
 import java.awt.*;
@@ -24,7 +31,15 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Iterator;
+
+//การตั้งค่ารูปแบบใน pdf
+import com.itextpdf.kernel.geom.PageSize;
+import com.itextpdf.kernel.geom.Rectangle;
+import com.itextpdf.layout.Canvas;
+import com.itextpdf.kernel.pdf.canvas.PdfCanvas;
+import com.itextpdf.layout.element.Table;
 
 import static com.itextpdf.kernel.pdf.PdfName.BaseFont;
 
@@ -61,8 +76,8 @@ public class ExcelUploadExample {
                     Object[][] data = readExcelFile(selectedFile);
                     // สร้างตารางแสดงข้อมูล
                     String[] columnNames = {
-                            "เลือก", "ยาว (ฟุต)", "กว้าง (นิ้ว)", "หนา (นิ้ว)", "จำนวน/แผ่น",
-                            "รหัสสินค้า", "วันที่", "ชื่อสินค้า", "เกรด", "Location", "Barcode"
+                            "เลือก","ลำดับ","รหัสสินค้า", "ยาว (ฟุต)", "กว้าง (นิ้ว)", "หนา (นิ้ว)", "จำนวน/แผ่น",
+//                             "วันที่", "ชื่อสินค้า", "เกรด", "Location", "Barcode"
                     };
 
 //                    String[] columnNames = {
@@ -101,17 +116,34 @@ public class ExcelUploadExample {
                     // ฟังการเลือกแถวใน JTable
                     table.getSelectionModel().addListSelectionListener(e1 -> {
                         if (!e1.getValueIsAdjusting()) {
-                            int[] selectedRows = table.getSelectedRows();
                             StringBuilder details = new StringBuilder();
-                            for (int row : selectedRows) {
-                                details.append("แถวที่ ").append(row + 1).append(":\n");
-                                for (int i = 0; i < columnNames.length; i++) {
-                                    details.append(columnNames[i]).append(": ")
-                                            .append(table.getValueAt(row, i)).append("\n");
+
+                            // แสดงข้อมูลของทุกแถวที่มี checkbox เป็น true
+                            for (int i = 0; i < table.getRowCount(); i++) {
+                                Boolean isChecked = (Boolean) table.getValueAt(i, 0);
+                                if (isChecked != null && isChecked) {
+                                    details.append("แถวที่ ").append(i + 1).append(":\n");
+                                    for (int j = 0; j < columnNames.length; j++) {
+                                        Object value = table.getValueAt(i, j);
+                                        String displayValue = value != null ? value.toString() : "";
+                                        details.append(columnNames[j]).append(": ")
+                                                .append(displayValue).append("\n");
+                                    }
+                                    details.append("\n");
                                 }
-                                details.append("\n");
                             }
-                            detailArea.setText(details.toString()); // แสดงข้อมูลของแถวที่เลือกทั้งหมด
+
+                            // ตั้งค่า checkbox เป็น true สำหรับแถวที่เพิ่งเลือก
+                            int[] selectedRows = table.getSelectedRows();
+                            for (int row : selectedRows) {
+                                if (row >= 0 && row < table.getRowCount()) {
+                                    table.setValueAt(true, row, 0);
+                                }
+                            }
+
+                            // อัพเดทพื้นที่แสดงรายละเอียด
+                            detailArea.setText(details.toString());
+                            detailArea.setCaretPosition(0);
                         }
                     });
 
@@ -134,8 +166,16 @@ public class ExcelUploadExample {
                     // ปุ่มสำหรับสร้างไฟล์ PDF
                     JButton exportPdfButton = new JButton("สร้าง PDF");
                     exportPdfButton.addActionListener(e2 -> {
-                        int[] selectedRows = table.getSelectedRows();
-                        if (selectedRows.length == 0) {
+                        // เปลี่ยนจากการใช้ selectedRows เป็นการตรวจสอบ checkbox
+                        List<Integer> checkedRows = new ArrayList<>();
+                        for (int i = 0; i < table.getRowCount(); i++) {
+                            Boolean isChecked = (Boolean) table.getValueAt(i, 0);
+                            if (isChecked != null && isChecked) {
+                                checkedRows.add(i);
+                            }
+                        }
+
+                        if (checkedRows.isEmpty()) {
                             try {
                                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
                                 Font thaiFont = new Font("Tahoma", Font.PLAIN, 14);
@@ -143,11 +183,14 @@ public class ExcelUploadExample {
                             } catch (Exception ex) {
                                 ex.printStackTrace();
                             }
-                            JOptionPane.showMessageDialog(frame, "กรุณาเลือกแถวก่อนที่จะสร้าง PDF", "ข้อความแจ้งเตือน", JOptionPane.WARNING_MESSAGE);
+                            JOptionPane.showMessageDialog(frame,
+                                    "กรุณาเลือกแถวก่อนที่จะสร้าง PDF",
+                                    "ข้อความแจ้งเตือน",
+                                    JOptionPane.WARNING_MESSAGE);
                             return;
                         }
+
                         try {
-                            createPdf(selectedRows, data, columnNames);
                             try {
                                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
                                 Font thaiFont = new Font("Tahoma", Font.PLAIN, 14);
@@ -155,11 +198,19 @@ public class ExcelUploadExample {
                             } catch (Exception ex) {
                                 ex.printStackTrace();
                             }
-                            JOptionPane.showMessageDialog(frame, "สร้าง PDF เสร็จสิ้นแล้ว", "สำเร็จ", JOptionPane.INFORMATION_MESSAGE);
-                        } catch (IOException | UnsupportedLookAndFeelException | ClassNotFoundException |
-                                 InstantiationException | IllegalAccessException ex) {
+                            // แปลง List<Integer> เป็น int[]
+                            int[] selectedRows = checkedRows.stream().mapToInt(Integer::intValue).toArray();
+                            createPdf(selectedRows, data, columnNames);
+                            JOptionPane.showMessageDialog(frame,
+                                    "สร้าง PDF เสร็จสิ้นแล้ว",
+                                    "สำเร็จ",
+                                    JOptionPane.INFORMATION_MESSAGE);
+                        } catch (Exception ex) {
                             ex.printStackTrace();
-                            JOptionPane.showMessageDialog(frame, "เกิดข้อผิดพลาดในการสร้าง PDF: " + ex.getMessage(), "ข้อผิดพลาด", JOptionPane.ERROR_MESSAGE);
+                            JOptionPane.showMessageDialog(frame,
+                                    "เกิดข้อผิดพลาดในการสร้าง PDF: " + ex.getMessage(),
+                                    "ข้อผิดพลาด",
+                                    JOptionPane.ERROR_MESSAGE);
                         }
                     });
 
@@ -211,7 +262,7 @@ public class ExcelUploadExample {
         while (rowIterator.hasNext()) {
             Row row = rowIterator.next();
             for (int colIndex = 0; colIndex < colCount; colIndex++) {
-                Cell cell = row.getCell(colIndex);
+                Cell cell = (Cell) row.getCell(colIndex);
                 if (cell != null) {
                     switch (cell.getCellType()) {
                         case STRING:
@@ -234,34 +285,14 @@ public class ExcelUploadExample {
         return data;
     }
 
-//    public static void createPdf(int[] selectedRows, Object[][] data, String[] columnNames) throws IOException {
-//        // สร้าง PDF
-//        File outputPdf = new File("output.pdf");
-//        PdfWriter writer = new PdfWriter(outputPdf);
-//        PdfDocument pdfDoc = new PdfDocument(writer);
-//        Document document = new Document(pdfDoc);
-//
-//        // เขียนข้อมูลจากแถวที่เลือก
-//        for (int row : selectedRows) {
-//            document.add(new Paragraph("ข้อมูลแถวที่ " + (row + 1)));
-//            for (int i = 0; i < columnNames.length; i++) {
-//                document.add(new Paragraph(columnNames[i] + ": " + data[row][i]));
-//            }
-//            document.add(new Paragraph("\n"));
-//
-//            // ขึ้นหน้าใหม่สำหรับแถวถัดไป
-//            document.add(new AreaBreak(AreaBreakType.NEXT_PAGE));
-//        }
-//
-//        document.close();
-//    }
 
-
-    // Function to create PDF from selected rows
     private static void createPdf(int[] selectedRows, Object[][] data, String[] columnNames) throws IOException, UnsupportedLookAndFeelException, ClassNotFoundException, InstantiationException, IllegalAccessException {
         String outputPath = "selected_rows_output.pdf";
         PdfWriter writer = new PdfWriter(outputPath);
         PdfDocument pdf = new PdfDocument(writer);
+
+        // ตั้งค่าขนาดกระดาษและหมุนเป็นแนวนอน
+        pdf.setDefaultPageSize(PageSize.A4.rotate());
         Document document = new Document(pdf);
 
         // ตั้งค่า Look and Feel ให้เหมือนกับระบบปัจจุบัน
@@ -273,25 +304,73 @@ public class ExcelUploadExample {
         }
         PdfFont tfont = PdfFontFactory.createFont(fontUrl.toString());
 
-        // Add the table headers
-        document.add(new Paragraph("Stock Card"));
-
-        // Create a table with 4 columns (for length, width, thickness, amount, etc.)
+        // สร้างแถวตามข้อมูลที่เลือก
         for (int rowIndex : selectedRows) {
-            document.add(new Paragraph("Row: " + (rowIndex + 1)));
-            document.add(new Paragraph("ยาว (ฟุต): " + data[rowIndex][1]).setFont(tfont));
-            document.add(new Paragraph("กว้าง (นิ้ว): " + data[rowIndex][2]).setFont(tfont));
-            document.add(new Paragraph("หนา (นิ้ว): " + data[rowIndex][3]).setFont(tfont));
-            document.add(new Paragraph("จำนวน/แผ่น: " + data[rowIndex][4]).setFont(tfont));
-            document.add(new AreaBreak(AreaBreakType.NEXT_PAGE)); // Add a new page for each row
+            // ตรวจสอบว่า rowIndex อยู่ในช่วงที่ถูกต้อง
+            if (rowIndex >= 0 && rowIndex < data.length) {
+
+                // เพิ่มข้อความหัวเรื่อง "Stock Card"
+                Paragraph title = new Paragraph("Stock Card")
+                        .setFont(tfont)
+                        .setFontSize(24)  // ตั้งขนาดฟอนต์
+                        .setTextAlignment(TextAlignment.CENTER);  // จัดให้อยู่กลาง
+                document.add(title);
+
+                // สร้างตารางเพื่อแสดงข้อมูล
+                Table table1 = new Table(4).setMinHeight(300);  // จำนวนคอลัมน์ในตาราง
+                Table table2 = new Table(4).setMinHeight(150);  // จำนวนคอลัมน์ในตาราง
+                Table table3 = new Table(3).setMinHeight(160);  // จำนวนคอลัมน์ในตาราง
+
+//                // เพิ่มหัวตาราง
+//                table1.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph("Row")));
+                table1.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph("ยาว (ฟุต)").setFont(tfont))).setTextAlignment(TextAlignment.CENTER).setFontSize(17);
+                table1.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph("กว้าง (นิ้ว)").setFont(tfont))).setTextAlignment(TextAlignment.CENTER).setFontSize(17);
+                table1.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph("หนา (นิ้ว)").setFont(tfont))).setTextAlignment(TextAlignment.CENTER).setFontSize(17);
+                table1.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph("จำนวน/แผ่น").setFont(tfont))).setTextAlignment(TextAlignment.CENTER).setFontSize(17);
+
+                // เพิ่มข้อมูลในแต่ละแถว
+//                table1.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph("Row: " + (rowIndex + 1))));
+                table1.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(String.valueOf(data[rowIndex][0])).setFont(tfont))).setTextAlignment(TextAlignment.CENTER);
+                table1.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(String.valueOf(data[rowIndex][1])).setFont(tfont))).setTextAlignment(TextAlignment.CENTER);
+                table1.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(String.valueOf(data[rowIndex][2])).setFont(tfont))).setTextAlignment(TextAlignment.CENTER);
+                table1.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(String.valueOf(data[rowIndex][3])).setFont(tfont))).setTextAlignment(TextAlignment.CENTER);
+
+
+                table3.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph("1"))).setTextAlignment(TextAlignment.CENTER);
+                table3.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph("2"))).setTextAlignment(TextAlignment.CENTER);
+
+//                // ตั้งค่าความกว้างของตารางให้เต็มหน้ากระดาษ
+                float pageWidth = pdf.getDefaultPageSize().getWidth();
+                float pageHeight = pdf.getDefaultPageSize().getHeight();
+                float padding = 36f; // กำหนดระยะห่างจากขอบ
+                table1.setWidth(pageWidth - 2 * padding);  // กำหนดความกว้างให้เต็มหน้ากระดาษ
+//                table1.setHeight(pageHeight - 2 * padding);  // กำหนดความสูงให้เต็มหน้ากระดาษ
+
+                table2.setWidth(pageWidth - 2 * padding);  // กำหนดความกว้างให้เต็มหน้ากระดาษ
+                table3.setWidth(pageWidth - 2 * padding);  // กำหนดความกว้างให้เต็มหน้ากระดาษ
+
+                // เพิ่มตารางลงในเอกสาร
+                document.add(table1);
+//                document.add(table2);
+                document.add(table3);
+
+                // เพิ่มกรอบสี่เหลี่ยมรอบตาราง
+                PdfCanvas pdfCanvas = new PdfCanvas(pdf.getLastPage());
+                Rectangle rectangle = new Rectangle(padding, padding, pageWidth - 2 * padding, pdf.getDefaultPageSize().getHeight() - 2 * padding);
+                pdfCanvas.rectangle(rectangle);
+                pdfCanvas.stroke();
+
+                document.add(new AreaBreak(AreaBreakType.NEXT_PAGE));
+
+            }
         }
 
-        document.close(); // Finalize the document
+        document.close();
 
         // Open the generated PDF in the default system PDF viewer
         File pdfFile = new File(outputPath);
         if (pdfFile.exists()) {
-            Desktop.getDesktop().open(pdfFile);  // Open the file in default viewer
+            Desktop.getDesktop().open(pdfFile);
         }
     }
 }
