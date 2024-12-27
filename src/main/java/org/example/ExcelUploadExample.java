@@ -20,10 +20,12 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import com.itextpdf.kernel.font.*;
 import com.itextpdf.kernel.pdf.*;
 
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.*;
+import javax.swing.table.JTableHeader;
 import java.awt.*;
 import java.awt.Desktop;
 import java.awt.event.ActionEvent;
@@ -49,7 +51,7 @@ public class ExcelUploadExample {
         // สร้างกรอบ (Frame)
         JFrame frame = new JFrame("ตารางสินค้า");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(800, 600);
+        frame.setSize(1200, 800);
         frame.setLocationRelativeTo(null);
 
         // กำหนดฟอนต์ให้รองรับภาษาไทย
@@ -64,6 +66,11 @@ public class ExcelUploadExample {
 
         // สร้างปุ่มให้เลือกไฟล์ Excel
         JButton uploadButton = new JButton("อัปโหลดไฟล์ Excel");
+        uploadButton.setPreferredSize(new Dimension(0, 50)); // ปรับขนาดของปุ่ม
+        uploadButton.setBackground(new Color(255, 162, 0)); // เปลี่ยนสีพื้นหลังเป็นสีน้ำเงิน
+//        uploadButton.setOpaque(true);  // ทำให้ปุ่มมีความทึบแสง
+//        uploadButton.setBorderPainted(true); // ทำให้กรอบของปุ่มปรากฏ
+        uploadButton.setFont(new Font("Tahoma", Font.CENTER_BASELINE, 17));
         uploadButton.addActionListener(e -> {
             // เลือกไฟล์ Excel
             JFileChooser fileChooser = new JFileChooser();
@@ -72,29 +79,30 @@ public class ExcelUploadExample {
             if (result == JFileChooser.APPROVE_OPTION) {
                 File selectedFile = fileChooser.getSelectedFile();
                 try {
+
                     // อ่านข้อมูลจากไฟล์ Excel
                     Object[][] data = readExcelFile(selectedFile);
                     // สร้างตารางแสดงข้อมูล
                     String[] columnNames = {
-                            "เลือก","ลำดับ","รหัสสินค้า", "ยาว (ฟุต)", "กว้าง (นิ้ว)", "หนา (นิ้ว)", "จำนวน/แผ่น",
-//                             "วันที่", "ชื่อสินค้า", "เกรด", "Location", "Barcode"
+                            "ลำดับ","รหัสสินค้า","ชื่อสินค้า",  "เกรด", "ยาว (ฟุต)", "กว้าง (นิ้ว)", "หนา (นิ้ว)", "จำนวน/แผ่น",
+                            "วันที่", "Location", "Barcode"
                     };
 
-//                    String[] columnNames = {
-//                            "01", "02", "03", "04", "05", "06", "07",
-//
-//                    };
-
                     // สร้าง DefaultTableModel และ JCheckBox ในคอลัมน์ "เลือก"
-                    Object[][] dataWithCheckbox = new Object[data.length][columnNames.length];
+                    Object[][] dataWithCheckbox = new Object[data.length][columnNames.length + 1];
                     for (int i = 0; i < data.length; i++) {
                         dataWithCheckbox[i][0] = false; // คอลัมน์ "เลือก" สำหรับ JCheckBox
-                        for (int j = 1; j < columnNames.length; j++) {
-                            dataWithCheckbox[i][j] = data[i][j - 1]; // ข้อมูลจริงจาก Excel
+                        for (int j = 0; j < columnNames.length; j++) {
+                            dataWithCheckbox[i][j + 1] = data[i][j]; // ข้อมูลจริงจาก Excel
                         }
                     }
 
-                    JTable table = new JTable(dataWithCheckbox, columnNames) {
+                    // รวมคอลัมน์ "เลือก" เข้าไปใน columnNames
+                    String[] allColumnNames = new String[columnNames.length + 1];
+                    allColumnNames[0] = "เลือก"; // ชื่อคอลัมน์ "เลือก"
+                    System.arraycopy(columnNames, 0, allColumnNames, 1, columnNames.length); // คัดลอก columnNames ลงใน allColumnNames
+
+                    JTable table = new JTable(dataWithCheckbox, allColumnNames) {
                         @Override
                         public Class<?> getColumnClass(int columnIndex) {
                             if (columnIndex == 0) {
@@ -103,9 +111,10 @@ public class ExcelUploadExample {
                             return super.getColumnClass(columnIndex);
                         }
                     };
-                    table.setFont(new Font("Tahoma", Font.PLAIN, 12));  // ใช้ฟอนต์ที่รองรับภาษาไทย
+                    table.setFont(new Font("Tahoma", Font.PLAIN, 14));  // ใช้ฟอนต์ที่รองรับภาษาไทย
                     table.setFillsViewportHeight(true);
                     table.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);  // การเลือกหลายแถว
+                    table.getTableHeader().setFont(new Font("Tahoma", Font.BOLD, 15));
                     JScrollPane scrollPane = new JScrollPane(table);
 
                     // สร้าง JTextArea สำหรับแสดงรายละเอียดของแถวที่เลือก
@@ -123,10 +132,10 @@ public class ExcelUploadExample {
                                 Boolean isChecked = (Boolean) table.getValueAt(i, 0);
                                 if (isChecked != null && isChecked) {
                                     details.append("แถวที่ ").append(i + 1).append(":\n");
-                                    for (int j = 0; j < columnNames.length; j++) {
+                                    for (int j = 0; j < allColumnNames.length; j++) {
                                         Object value = table.getValueAt(i, j);
                                         String displayValue = value != null ? value.toString() : "";
-                                        details.append(columnNames[j]).append(": ")
+                                        details.append(allColumnNames[j]).append(": ")
                                                 .append(displayValue).append("\n");
                                     }
                                     details.append("\n");
@@ -149,6 +158,10 @@ public class ExcelUploadExample {
 
                     // ปุ่มสำหรับเลือกทั้งหมด
                     JButton selectAllButton = new JButton("เลือกทั้งหมด");
+                    selectAllButton.setPreferredSize(new java.awt.Dimension(200, 50)); // ปรับขนาดของปุ่ม
+                    selectAllButton.setBackground(new java.awt.Color(0, 123, 255)); // เปลี่ยนสีพื้นหลังเป็นสีน้ำเงิน
+//                    selectAllButton.setForeground(java.awt.Color.WHITE); // เปลี่ยนสีข้อความเป็นสีขาว
+                    selectAllButton.setFont(new Font("Tahoma", Font.PLAIN, 15));
                     selectAllButton.addActionListener((ActionEvent e2) -> {
                         for (int i = 0; i < table.getRowCount(); i++) {
                             table.setValueAt(true, i, 0); // ตั้งค่าเครื่องหมายถูกในทุกแถว
@@ -157,6 +170,9 @@ public class ExcelUploadExample {
 
                     // ปุ่มสำหรับยกเลิกการเลือกทั้งหมด
                     JButton deselectAllButton = new JButton("ยกเลิกการเลือกทั้งหมด");
+                    deselectAllButton.setPreferredSize(new java.awt.Dimension(200, 50)); // ปรับขนาดของปุ่ม
+                    deselectAllButton.setBackground(new java.awt.Color(220, 53, 69)); // เปลี่ยนสีพื้นหลังเป็นสีแดง
+                    deselectAllButton.setFont(new Font("Tahoma", Font.PLAIN, 15));
                     deselectAllButton.addActionListener((ActionEvent e2) -> {
                         for (int i = 0; i < table.getRowCount(); i++) {
                             table.setValueAt(false, i, 0); // ลบเครื่องหมายถูกจากทุกแถว
@@ -165,6 +181,9 @@ public class ExcelUploadExample {
 
                     // ปุ่มสำหรับสร้างไฟล์ PDF
                     JButton exportPdfButton = new JButton("สร้าง PDF");
+                    exportPdfButton.setPreferredSize(new java.awt.Dimension(200, 50)); // ปรับขนาดของปุ่ม
+                    exportPdfButton.setBackground(new java.awt.Color(40, 167, 69)); // เปลี่ยนสีพื้นหลังเป็นสีเขียว
+                    exportPdfButton.setFont(new Font("Tahoma", Font.PLAIN, 15));
                     exportPdfButton.addActionListener(e2 -> {
                         // เปลี่ยนจากการใช้ selectedRows เป็นการตรวจสอบ checkbox
                         List<Integer> checkedRows = new ArrayList<>();
@@ -198,9 +217,17 @@ public class ExcelUploadExample {
                             } catch (Exception ex) {
                                 ex.printStackTrace();
                             }
+
                             // แปลง List<Integer> เป็น int[]
                             int[] selectedRows = checkedRows.stream().mapToInt(Integer::intValue).toArray();
-                            createPdf(selectedRows, data, columnNames);
+                            for (int rowIndex : selectedRows) {
+                                if (data[rowIndex].length < allColumnNames.length) {
+//                                    System.out.println("Skipping incomplete row: " + rowIndex);
+//                                    continue; // ข้ามแถวนี้ไป
+                                    throw new IllegalArgumentException("ข้อมูลในแถวไม่สมบูรณ์: แถว " + rowIndex);
+                                }
+                            }
+                            createPdf(selectedRows, data, allColumnNames);
                             JOptionPane.showMessageDialog(frame,
                                     "สร้าง PDF เสร็จสิ้นแล้ว",
                                     "สำเร็จ",
@@ -253,7 +280,7 @@ public class ExcelUploadExample {
         int colCount = sheet.getRow(0).getPhysicalNumberOfCells();
 
         // สร้าง Object[][] เพื่อเก็บข้อมูลในตาราง
-        Object[][] data = new Object[rowCount - 1][colCount];
+        Object[][] data = new Object[rowCount - 1][colCount + 20]; //มีผลต่อจำนวน column ที่ทำให้ print pdf file
 
         Iterator<Row> rowIterator = sheet.iterator();
         rowIterator.next(); // ข้ามแถวแรกที่เป็นหัวข้อ
@@ -263,18 +290,43 @@ public class ExcelUploadExample {
             Row row = rowIterator.next();
             for (int colIndex = 0; colIndex < colCount; colIndex++) {
                 Cell cell = (Cell) row.getCell(colIndex);
+
                 if (cell != null) {
                     switch (cell.getCellType()) {
                         case STRING:
-                            data[rowIndex][colIndex] = cell.getStringCellValue();
+                            String cellValue = cell.getStringCellValue();
+                            // ตรวจสอบว่าในสตริงมีตัวอักษรพิมพ์ใหญ่แค่ 1 ตัวหรือไม่
+                            String upperCaseLetter = cellValue.replaceAll("[^A-Z]", ""); // ลบอักขระที่ไม่ใช่ตัวพิมพ์ใหญ่
+                            if (upperCaseLetter.length() == 1) {
+                                // หากมีตัวพิมพ์ใหญ่แค่ 1 ตัว ก็ให้แสดงตัวอักษรนั้น
+                                data[rowIndex][colIndex] = upperCaseLetter;
+                            } else {
+                                // หากไม่มีหรือตัวพิมพ์ใหญ่หลายตัว ให้แสดงข้อมูลทั้งหมด
+                                data[rowIndex][colIndex] = cellValue;
+                            }
                             break;
                         case NUMERIC:
-                            data[rowIndex][colIndex] = cell.getNumericCellValue();
+                            // ตรวจสอบว่าเป็นค่าที่เป็นเลขทศนิยมหรือไม่
+                            if (cell.getCellStyle().getDataFormatString().contains("%")) {
+                                // หากเป็นเปอร์เซ็นต์
+                                data[rowIndex][colIndex] = cell.getNumericCellValue() / 100;
+                            } else {
+                                double numericValue = cell.getNumericCellValue();
+                                // แปลงค่าตัวเลขให้อยู่ในรูปแบบที่ต้องการ (ไม่ให้เป็น scientific notation)
+                                if (numericValue == (long) numericValue) {
+                                    // ถ้าเป็นจำนวนเต็ม เช่น 10.0 ให้แสดงเป็น 10
+                                    data[rowIndex][colIndex] = (long) numericValue;
+                                } else {
+                                    // หากไม่ใช่จำนวนเต็ม เช่น 0.75 ให้แสดงเป็นทศนิยม
+                                    data[rowIndex][colIndex] = numericValue;
+                                }
+                            }
                             break;
                         default:
                             data[rowIndex][colIndex] = "";
                     }
                 }
+
             }
             rowIndex++;
         }
@@ -299,7 +351,6 @@ public class ExcelUploadExample {
 
         // ตั้งค่า Look and Feel ให้เหมือนกับระบบปัจจุบัน
         UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-
         URL fontUrl = ExcelUploadExample.class.getResource("/fonts/NotoSerifThai-Regular.ttf");
         if (fontUrl == null) {
             throw new IOException("Font file not found!");
@@ -332,13 +383,13 @@ public class ExcelUploadExample {
 
                 // เพิ่มข้อมูลในแต่ละแถว
 //                table1.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph("Row: " + (rowIndex + 1))));
-                table1.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(String.valueOf(data[rowIndex][0])).setFont(tfont))).setTextAlignment(TextAlignment.CENTER);
-                table1.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(String.valueOf(data[rowIndex][1])).setFont(tfont))).setTextAlignment(TextAlignment.CENTER);
-                table1.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(String.valueOf(data[rowIndex][2])).setFont(tfont))).setTextAlignment(TextAlignment.CENTER);
-                table1.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(String.valueOf(data[rowIndex][3])).setFont(tfont))).setTextAlignment(TextAlignment.CENTER);
+                table1.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(String.valueOf(data[rowIndex][4])).setFont(tfont))).setTextAlignment(TextAlignment.CENTER);
+                table1.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(String.valueOf(data[rowIndex][5])).setFont(tfont))).setTextAlignment(TextAlignment.CENTER);
+                table1.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(String.valueOf(data[rowIndex][6])).setFont(tfont))).setTextAlignment(TextAlignment.CENTER);
+                table1.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(String.valueOf(data[rowIndex][7])).setFont(tfont))).setTextAlignment(TextAlignment.CENTER);
 
 
-                table3.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph("1"))).setTextAlignment(TextAlignment.CENTER);
+                table3.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(String.valueOf(data[rowIndex][3])))).setTextAlignment(TextAlignment.CENTER);
                 table3.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph("2"))).setTextAlignment(TextAlignment.CENTER);
 
 //                // ตั้งค่าความกว้างของตารางให้เต็มหน้ากระดาษ
@@ -348,7 +399,7 @@ public class ExcelUploadExample {
                 table1.setWidth(pageWidth - 2 * padding);  // กำหนดความกว้างให้เต็มหน้ากระดาษ
 //                table1.setHeight(pageHeight - 2 * padding);  // กำหนดความสูงให้เต็มหน้ากระดาษ
 
-                table2.setWidth(pageWidth - 2 * padding);  // กำหนดความกว้างให้เต็มหน้ากระดาษ
+//                table2.setWidth(pageWidth - 2 * padding);  // กำหนดความกว้างให้เต็มหน้ากระดาษ
                 table3.setWidth(pageWidth - 2 * padding);  // กำหนดความกว้างให้เต็มหน้ากระดาษ
 
                 // เพิ่มตารางลงในเอกสาร
