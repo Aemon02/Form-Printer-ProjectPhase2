@@ -226,7 +226,7 @@ public class ExcelUploadExample {
                     frame.add(uploadButton, BorderLayout.NORTH); // เพิ่มปุ่ม
                     frame.add(scrollPane, BorderLayout.CENTER); // เพิ่มตาราง
                     frame.add(buttonPanel, BorderLayout.SOUTH); // เพิ่มปุ่มที่ด้านล่าง
-                    frame.add(new JScrollPane(detailArea), BorderLayout.EAST); // เพิ่มพื้นที่แสดงรายละเอียด
+//                    frame.add(new JScrollPane(detailArea), BorderLayout.EAST); // เพิ่มพื้นที่แสดงรายละเอียด
                     frame.revalidate(); // รีเฟรชกรอบ
                     frame.repaint();
                 } catch (IOException ex) {
@@ -287,7 +287,9 @@ public class ExcelUploadExample {
 
 
     private static void createPdf(int[] selectedRows, Object[][] data, String[] columnNames) throws IOException, UnsupportedLookAndFeelException, ClassNotFoundException, InstantiationException, IllegalAccessException {
-        String outputPath = "selected_rows_output.pdf";
+//        String outputPath = "selected_rows_output.pdf";
+        String userHome = System.getProperty("user.home");
+        String outputPath = userHome + File.separator + "Desktop" + File.separator + "selected_rows_output.pdf";
         PdfWriter writer = new PdfWriter(outputPath);
         PdfDocument pdf = new PdfDocument(writer);
 
