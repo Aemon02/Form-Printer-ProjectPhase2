@@ -2,29 +2,34 @@ package org.example;
 
 import com.itextpdf.io.font.PdfEncodings;
 import com.itextpdf.io.font.constants.StandardFonts;
+import com.itextpdf.io.image.ImageDataFactory;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
+import com.itextpdf.layout.borders.Border;
 import com.itextpdf.layout.element.AreaBreak;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Text;
 import com.itextpdf.layout.properties.AreaBreakType;
+import com.itextpdf.io.image.ImageData;
+import com.itextpdf.layout.element.Image;
+import com.itextpdf.io.image.ImageDataFactory;
+import com.itextpdf.layout.properties.HorizontalAlignment;
 
 //import com.itextpdf.layout.element.Cell;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.VerticalAlignment;
-import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.*;
 
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import com.itextpdf.kernel.font.*;
 import com.itextpdf.kernel.pdf.*;
 
+import java.awt.Color;
+import java.awt.Font;
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.List;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 import javax.swing.*;
 import javax.swing.table.JTableHeader;
@@ -36,7 +41,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.List;
 
 //การตั้งค่ารูปแบบใน pdf
 import com.itextpdf.kernel.geom.PageSize;
@@ -86,7 +91,7 @@ public class ExcelUploadExample {
                     Object[][] data = readExcelFile(selectedFile);
                     // สร้างตารางแสดงข้อมูล
                     String[] columnNames = {
-                            "ลำดับ","รหัสสินค้า","ชื่อสินค้า",  "เกรด", "ยาว (ฟุต)", "กว้าง (นิ้ว)", "หนา (นิ้ว)", "จำนวน/แผ่น",
+                            "No","Code","Description", "หนา (นิ้ว)", "กว้าง (นิ้ว)", "ยาว (ฟุต)", "จำนวน/แผ่น","ปริมาตร",
                             "วันที่", "Location", "Barcode"
                     };
 
@@ -308,8 +313,12 @@ public class ExcelUploadExample {
                             }
                             break;
                         case NUMERIC:
-                            // ตรวจสอบว่าเป็นค่าที่เป็นเลขทศนิยมหรือไม่
-                            if (cell.getCellStyle().getDataFormatString().contains("%")) {
+                            if (DateUtil.isCellDateFormatted(cell)) {
+                                // หากเซลล์เป็นวันที่ ให้แปลงเป็นรูปแบบวันที่ที่ต้องการ
+                                Date date = cell.getDateCellValue();
+                                SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy"); // กำหนดรูปแบบวันที่
+                                data[rowIndex][colIndex] = dateFormat.format(date); // แปลงวันที่เป็นสตริง
+                            } else if (cell.getCellStyle().getDataFormatString().contains("%")) {
                                 // หากเป็นเปอร์เซ็นต์
                                 data[rowIndex][colIndex] = cell.getNumericCellValue() / 100;
                             } else {
@@ -319,7 +328,8 @@ public class ExcelUploadExample {
                                     // ถ้าเป็นจำนวนเต็ม เช่น 10.0 ให้แสดงเป็น 10
                                     data[rowIndex][colIndex] = (long) numericValue;
                                 } else {
-                                    // หากไม่ใช่จำนวนเต็ม เช่น 0.75 ให้แสดงเป็นทศนิยม
+                                    // หากไม่ใช่จำนวนเต็ม เช่น 0.75678 ให้แสดงเป็นทศนิยมไม่เกิน 3 ตำแหน่ง
+                                    numericValue = Math.round(numericValue * 1000.0) / 1000.0; // ปัดเศษให้เหลือ 3 ตำแหน่ง
                                     data[rowIndex][colIndex] = numericValue;
                                 }
                             }
@@ -328,6 +338,9 @@ public class ExcelUploadExample {
                             data[rowIndex][colIndex] = "";
                     }
                 }
+
+
+
 
             }
             rowIndex++;
@@ -367,15 +380,22 @@ public class ExcelUploadExample {
             // ตรวจสอบว่า rowIndex อยู่ในช่วงที่ถูกต้อง
             if (rowIndex >= 0 && rowIndex < data.length) {
 
+                // โหลดรูปภาพ
+                Image logoImage = new Image(ImageDataFactory.create("src/main/resources/logo/logo01.png"));
+
                 // เพิ่มข้อความหัวเรื่อง "Stock Card"
-                Paragraph title = new Paragraph("Stock Card")
-                        .setFont(tfont)
-                        .setFontSize(24)  // ตั้งขนาดฟอนต์
-                        .setTextAlignment(TextAlignment.CENTER);  // จัดให้อยู่กลาง
+                logoImage.setHeight(100); // กำหนดขนาดความสูงของรูป
+                logoImage.setHorizontalAlignment(HorizontalAlignment.LEFT);
+                Paragraph title = new Paragraph()
+                        .add(logoImage)
+                        .add(new Text("  Stock Card  ").setFont(tfont).setFontSize(27))
+                        .add(new Text("ไม้สักแปรรูป").setFont(tfont).setFontSize(20))
+                        .setTextAlignment(TextAlignment.CENTER);
+
                 document.add(title);
 
                 // สร้างตารางเพื่อแสดงข้อมูล
-                Table table = new Table(4);  // จำนวนคอลัมน์ในตาราง
+                Table table = new Table(5);  // จำนวนคอลัมน์ในตาราง
 
                 // row 1
                 table.addCell(new com.itextpdf.layout.element.Cell()
@@ -394,62 +414,80 @@ public class ExcelUploadExample {
                         .add(new Paragraph("จำนวน/แผ่น").setFont(tfont).setFontSize(25))
                         .setTextAlignment(TextAlignment.CENTER)
                         .setVerticalAlignment(VerticalAlignment.MIDDLE));
+                table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new Paragraph("ปริมาตร").setFont(tfont).setFontSize(25))
+                        .setTextAlignment(TextAlignment.CENTER)
+                        .setVerticalAlignment(VerticalAlignment.MIDDLE));
 
                 // row 2
                 table.addCell(new com.itextpdf.layout.element.Cell()
-                        .add(new Paragraph(String.valueOf(data[rowIndex][4])).setFont(tfont).setBold())
-                        .setFontSize(60)
+                        .add(new Paragraph(String.valueOf(data[rowIndex][5])).setFont(tfont).setBold())
+                        .setFontSize(40)
                         .setTextAlignment(TextAlignment.CENTER)
                         .setVerticalAlignment(VerticalAlignment.MIDDLE));
                 table.addCell(new com.itextpdf.layout.element.Cell()
-                        .add(new Paragraph(String.valueOf(data[rowIndex][5])).setFont(tfont))
-                        .setFontSize(60)
+                        .add(new Paragraph(String.valueOf(data[rowIndex][4])).setFont(tfont))
+                        .setFontSize(40)
+                        .setTextAlignment(TextAlignment.CENTER)
+                        .setVerticalAlignment(VerticalAlignment.MIDDLE));
+                table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new Paragraph(String.valueOf(data[rowIndex][3])).setFont(tfont))
+                        .setFontSize(40)
                         .setTextAlignment(TextAlignment.CENTER)
                         .setVerticalAlignment(VerticalAlignment.MIDDLE));
                 table.addCell(new com.itextpdf.layout.element.Cell()
                         .add(new Paragraph(String.valueOf(data[rowIndex][6])).setFont(tfont))
-                        .setFontSize(60)
+                        .setFontSize(40)
                         .setTextAlignment(TextAlignment.CENTER)
                         .setVerticalAlignment(VerticalAlignment.MIDDLE));
                 table.addCell(new com.itextpdf.layout.element.Cell()
                         .add(new Paragraph(String.valueOf(data[rowIndex][7])).setFont(tfont))
-                        .setFontSize(60)
+                        .setFontSize(40)
                         .setTextAlignment(TextAlignment.CENTER)
                         .setVerticalAlignment(VerticalAlignment.MIDDLE));
 
                 // row 3
-                table.addCell(new com.itextpdf.layout.element.Cell(2, 1)
-                        .add(new Paragraph(String.valueOf(data[rowIndex][3]))).setFontSize(100)
-                        .setTextAlignment(TextAlignment.CENTER));
-                table.addCell(new com.itextpdf.layout.element.Cell(1,2)
+                table.addCell(new com.itextpdf.layout.element.Cell(1, 1)
                         .add(new Paragraph()
-                                .add(new Text("รหัสสินค้า ").setFont(tfont).setFontSize(15))  // ตัวหนังสือปกติ
-                                .add(new Text(String.valueOf(data[rowIndex][4])).setFont(tfont).setFontSize(15).setBold())  // ข้อความที่เป็นตัวหนา
-                                .add(new Text("\nชื่อสินค้า ").setFont(tfont).setFontSize(15))  // ตัวหนังสือปกติ
-                                .add(new Text(String.valueOf(data[rowIndex][4])).setFont(tfont).setFontSize(15).setBold())  // ข้อความที่เป็นตัวหนา
+                                .add(new Text("เกรด").setFont(tfont).setFontSize(20))
+                                .add(new Text("\n ").setFont(tfont).setFontSize(20))
+                                .add(new Text(String.valueOf(data[rowIndex][0])).setFont(tfont).setFontSize(40).setBold())
                         )
-                        .setTextAlignment(TextAlignment.LEFT)// ชิดซ้าย
-                        .setVerticalAlignment(VerticalAlignment.MIDDLE)
-                        .setFont(tfont));
-                table.addCell(new com.itextpdf.layout.element.Cell()
+                        .setTextAlignment(TextAlignment.CENTER));
+                table.addCell(new com.itextpdf.layout.element.Cell(1, 3)
                         .add(new Paragraph()
-                                .add(new Text("วันที่ ").setFont(tfont).setFontSize(15))  // ตัวหนังสือปกติ
-                                .add(new Text(String.valueOf(data[rowIndex][4])).setFont(tfont).setFontSize(15).setBold())  // ข้อความที่เป็นตัวหนา
-                                .add(new Text("\nLocation ").setFont(tfont).setFontSize(15))  // ตัวหนังสือปกติ
-                                .add(new Text(String.valueOf(data[rowIndex][4])).setFont(tfont).setFontSize(15).setBold())  // ข้อความที่เป็นตัวหนา
+                                .add(new Text("รหัสสินค้า :  ").setFont(tfont).setFontSize(20))  // ตัวหนังสือปกติ
+                                .add(new Text(String.valueOf(data[rowIndex][1])).setFont(tfont).setFontSize(20).setBold())  // ข้อความที่เป็นตัวหนา
+                                .add(new Text("\nชื่อสินค้า :  ").setFont(tfont).setFontSize(20))  // ตัวหนังสือปกติ
+                                .add(new Text(String.valueOf(data[rowIndex][2])).setFont(tfont).setFontSize(20).setBold())  // ข้อความที่เป็นตัวหนา
                         )
                         .setTextAlignment(TextAlignment.LEFT)
                         .setVerticalAlignment(VerticalAlignment.MIDDLE)
                         .setFont(tfont));
-                table.addCell(new com.itextpdf.layout.element.Cell(1,3)
-                        .add(new Paragraph("barcode"))
+                table.addCell(new com.itextpdf.layout.element.Cell(1, 2)
+                        .add(new Paragraph()
+                                        .add(new Text("วันที่").setFont(tfont).setFontSize(20))  // ตัวหนังสือปกต
+                                        .add(new Text("\n ").setFont(tfont).setFontSize(20))  // ตัวหนังสือปกติ
+                                        .add(new Text(String.valueOf(data[rowIndex][8])).setFont(tfont).setFontSize(20).setBold())  // ข้อความที่เป็นตัวหนา
+                                        .setTextAlignment(TextAlignment.CENTER)
+//                                .add(new Text(String.valueOf(data[rowIndex][9])).setFont(tfont).setFontSize(15).setBold())  // ข้อความที่เป็นตัวหนา
+                        )
+                        .setVerticalAlignment(VerticalAlignment.MIDDLE)
+                        .setFont(tfont));
+                table.addCell(new com.itextpdf.layout.element.Cell(1, 3)
+//                        .add(new Paragraph("Location"))
+                        .add(new Paragraph("barcode").setFontSize(15))
+                        .setTextAlignment(TextAlignment.CENTER)
+                        .setVerticalAlignment(VerticalAlignment.MIDDLE));
+                table.addCell(new com.itextpdf.layout.element.Cell(1, 3)
+                        .add(new Paragraph("Location").setFontSize(15))
                         .setTextAlignment(TextAlignment.CENTER)
                         .setVerticalAlignment(VerticalAlignment.MIDDLE));
 
 //                // ตั้งค่าความกว้างของตารางให้เต็มหน้ากระดาษ
                 float pageWidth = pdf.getDefaultPageSize().getWidth();
                 float pageHeight = pdf.getDefaultPageSize().getHeight();
-                float padding = 36f; // กำหนดระยะห่างจากขอบ
+                float padding = 36f;
                 table.setWidth(pageWidth - 2 * padding);  // กำหนดความกว้างให้เต็มหน้ากระดาษ
                 table.setHeight(pageHeight - 2 * padding);  // กำหนดความสูงให้เต็มหน้ากระดาษ
 
