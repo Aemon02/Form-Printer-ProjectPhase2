@@ -92,7 +92,7 @@ public class ExcelUploadExample {
                     Object[][] data = readExcelFile(selectedFile);
                     // สร้างตารางแสดงข้อมูล
                     String[] columnNames = {
-                            "No","Code","Description", "หนา (นิ้ว)", "กว้าง (นิ้ว)", "ยาว (ฟุต)", "จำนวน/แผ่น","ปริมาตร",
+                            "No","Code","Description","เกรด", "หนา (นิ้ว)", "กว้าง (นิ้ว)", "ยาว (ฟุต)", "จำนวน/แผ่น","ปริมาตร",
                             "วันที่", "Location", "Barcode"
                     };
 
@@ -452,7 +452,7 @@ public class ExcelUploadExample {
                         .add(new Paragraph()
                                 .add(new Text("เกรด").setFont(tfont).setFontSize(20))
                                 .add(new Text("\n ").setFont(tfont).setFontSize(20))
-                                .add(new Text(String.valueOf(data[rowIndex][0])).setFont(tfont).setFontSize(40).setBold())
+                                .add(new Text(String.valueOf(data[rowIndex][3])).setFont(tfont).setFontSize(40).setBold())
                         )
                         .setTextAlignment(TextAlignment.CENTER));
                 table.addCell(new com.itextpdf.layout.element.Cell(1, 3)
